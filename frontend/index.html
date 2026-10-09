@@ -204,6 +204,29 @@
     }
     .lang-selector select:focus { border-color: var(--primary); }
 
+    /* Toggle row */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; margin: 8px 0;
+    }
+    .toggle-row label { font-size: 13px; color: var(--muted); cursor: pointer; }
+    .toggle {
+      position: relative; width: 40px; height: 22px; flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; border-radius: 22px;
+      background: #D1D5DB; cursor: pointer; transition: background .2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute;
+      width: 16px; height: 16px; border-radius: 50%;
+      left: 3px; top: 3px; background: #fff;
+      transition: transform .2s;
+    }
+    .toggle input:checked + .toggle-slider { background: var(--primary); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
     /* ── Results Screen ── */
     .results-screen { display: none; }
 
@@ -237,7 +260,7 @@
       background: rgba(255,255,255,.15);
       border: 4px solid rgba(255,255,255,.4);
       display: flex; align-items: center; justify-content: center;
-      font-size: 42px; font-weight: 900; color: #fff;
+      font-size: 28px; font-weight: 900; color: #fff;
       box-shadow: 0 0 0 6px rgba(255,255,255,.1);
     }
     .score-ring.ring-1 { border-color: #FCA5A5; }
@@ -368,6 +391,13 @@
           <option value="pa-IN">ਪੰਜਾਬੀ (Punjabi)</option>
         </select>
       </div>
+      <div class="toggle-row">
+        <label for="editToggle">Allow editing answers before sending</label>
+        <label class="toggle">
+          <input type="checkbox" id="editToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
       <div class="tip">💡 Works best on <strong>Chrome</strong> with microphone access</div><br>
       <button class="btn-start" onclick="startInterview()">Start Interview →</button>
     </div>
@@ -458,11 +488,14 @@
 let history      = [];       // [{role, content}, ...]
 let state        = 'IDLE';   // IDLE | AI_SPEAKING | USER_TURN | LISTENING | PROCESSING | DONE
 let selectedLang = 'en-IN';
+let allowEdit    = false;
 let startTime    = null;
 let timerHandle  = null;
 let recognition  = null;
 let hasVoice     = false;
 let finalBuf     = '';
+let silenceTimer = null;
+const SILENCE_MS = 4000;
 const synth      = window.speechSynthesis;
 
 // ═══════════════════════════════════════════
@@ -519,19 +552,25 @@ function setupRecognition() {
     const box = id('interim');
     box.textContent = (finalBuf + interim) || '…listening…';
     box.style.display = 'block';
+    resetSilenceTimer();
   };
 
   recognition.onend = () => {
     micOff();
+    clearSilenceTimer();
     if (finalBuf.trim()) {
       const txt = finalBuf.trim(); finalBuf = '';
       id('interim').style.display = 'none';
-      const inp = id('textInput');
-      inp.value = txt;
-      inp.focus();
-      inp.setSelectionRange(txt.length, txt.length);
-      setState('USER_TURN');
-      setStatus('Edit your answer if needed, then press Enter or ➤');
+      if (allowEdit) {
+        const inp = id('textInput');
+        inp.value = txt;
+        inp.focus();
+        inp.setSelectionRange(txt.length, txt.length);
+        setState('USER_TURN');
+        setStatus('Edit your answer if needed, then press Enter or ➤');
+      } else {
+        sendMessage(txt);
+      }
     } else if (state === 'LISTENING') {
       setState('USER_TURN');
       setStatus('Tap the mic and speak 🎤');
@@ -577,6 +616,18 @@ function setStatus(t) { id('status').textContent = t; }
 
 function micOn()  { const b = id('btnMic'); b.classList.add('listening');    b.innerHTML = '⏹️'; }
 function micOff() { const b = id('btnMic'); b.classList.remove('listening'); b.innerHTML = '🎤'; }
+
+function resetSilenceTimer() {
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(() => {
+    if (state === 'LISTENING') recognition.stop();
+  }, SILENCE_MS);
+}
+
+function clearSilenceTimer() {
+  clearTimeout(silenceTimer);
+  silenceTimer = null;
+}
 
 function setState(s) {
   state = s;
@@ -645,11 +696,13 @@ function activateTextFallback() {
 // ═══════════════════════════════════════════
 async function startInterview() {
   selectedLang = id('langSelect').value;
+  allowEdit    = id('editToggle').checked;
   id('idle').style.display      = 'none';
   id('interview').style.display = 'block';
 
   setupRecognition();
   if (!hasVoice) activateTextFallback();
+  id('textFallback').style.display = (allowEdit || !hasVoice) ? 'flex' : 'none';
 
   // Pre-load TTS voices (async in some browsers)
   if (synth && synth.getVoices().length === 0) {
@@ -685,7 +738,21 @@ async function fetchAI(msgs) {
       speak(msg, () => getAssessment());
     } else {
       setState('AI_SPEAKING');
-      speak(msg, () => setState('USER_TURN'));
+      speak(msg, () => {
+        if (hasVoice) {
+          finalBuf = '';
+          try {
+            recognition.start();
+            setState('LISTENING');
+            setStatus('Listening… pause 4s or tap ⏹️ when done');
+            resetSilenceTimer();
+          } catch {
+            setState('USER_TURN');
+          }
+        } else {
+          setState('USER_TURN');
+        }
+      });
     }
   } catch (err) {
     console.error(err);
@@ -703,7 +770,8 @@ function toggleMic() {
     try {
       recognition.start();
       setState('LISTENING');
-      setStatus('Listening… tap ⏹️ when done speaking');
+      setStatus('Listening… pause 4s or tap ⏹️ when done');
+      resetSilenceTimer();
     } catch {
       activateTextFallback();
     }
@@ -774,7 +842,7 @@ function showResults(data) {
 
   const score = Math.min(5, Math.max(1, data.score || 3));
   const ring = id('scoreRing');
-  ring.textContent = score;
+  ring.textContent = `${score}/5`;
   ring.className = `score-ring ring-${score}`;
   id('scoreStars').textContent = '★'.repeat(score) + '☆'.repeat(5 - score);
   id('scoreLabel').textContent = data.label || 'Active Collaborator';
