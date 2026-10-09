@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Teamwork Interview</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:       #5B4CF5;
+      --primary-light: #8B7CF8;
+      --primary-bg:    #F0EFFE;
+      --green:         #10B981;
+      --green-bg:      #ECFDF5;
+      --yellow:        #F59E0B;
+      --orange:        #F97316;
+      --red:           #EF4444;
+      --text:          #111827;
+      --muted:         #6B7280;
+      --border:        #E5E7EB;
+      --bg:            #F5F6FF;
+      --card:          #FFFFFF;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .container { width: 100%; max-width: 580px; }
+
+    /* ── Header ── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .page-header h1 { font-size: 22px; font-weight: 700; color: var(--primary); }
+    .page-header p  { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 8px 36px rgba(91,76,245,.13);
+    }
+
+    /* ── Idle Screen ── */
+    .idle-screen { text-align: center; padding: 24px 0; }
+    .idle-screen .hero-icon { font-size: 64px; margin-bottom: 12px; }
+    .idle-screen h2 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .idle-screen .desc {
+      font-size: 14px; color: var(--muted); max-width: 340px;
+      margin: 0 auto 20px; line-height: 1.6;
+    }
+    .idle-screen .tip {
+      font-size: 12px; color: #9CA3AF;
+      background: #F9FAFB; border-radius: 8px; padding: 8px 12px;
+      display: inline-block; margin-bottom: 24px;
+    }
+    .btn-start {
+      display: inline-block; padding: 15px 44px;
+      background: var(--primary); color: #fff;
+      border: none; border-radius: 50px;
+      font-size: 17px; font-weight: 600; cursor: pointer;
+      box-shadow: 0 4px 18px rgba(91,76,245,.38);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .btn-start:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(91,76,245,.42); }
+    .btn-start:active { transform: translateY(0); }
+
+    /* ── Interview Screen ── */
+    .interview-screen { display: none; }
+
+    .interviewer-bar {
+      display: flex; align-items: center; gap: 14px;
+      padding-bottom: 18px; margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .avatar {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .interviewer-info h2 { font-size: 16px; font-weight: 600; color: var(--text); }
+    .interviewer-info p  { font-size: 12px; color: var(--muted); }
+    .timer {
+      margin-left: auto; font-size: 18px; font-weight: 700;
+      color: var(--primary); font-variant-numeric: tabular-nums;
+      letter-spacing: .5px;
+    }
+    .timer.warn { color: var(--yellow); }
+
+    /* Transcript */
+    .transcript {
+      height: 260px; overflow-y: auto;
+      padding-right: 4px; margin-bottom: 16px;
+    }
+    .transcript::-webkit-scrollbar { width: 3px; }
+    .transcript::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 2px; }
+
+    .msg { margin-bottom: 14px; animation: rise .28s ease; }
+    @keyframes rise {
+      from { opacity:0; transform: translateY(6px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    .msg-who {
+      font-size: 10px; font-weight: 700; letter-spacing: .6px;
+      text-transform: uppercase; margin-bottom: 4px;
+    }
+    .msg.priya .msg-who { color: var(--primary); }
+    .msg.user  .msg-who { color: var(--green); }
+    .msg-bubble {
+      display: inline-block; padding: 10px 14px;
+      border-radius: 12px; font-size: 14px; line-height: 1.55;
+      max-width: 95%;
+    }
+    .msg.priya .msg-bubble { background: var(--primary-bg); color: var(--text); border-top-left-radius: 3px; }
+    .msg.user  .msg-bubble { background: var(--green-bg);   color: var(--text); border-top-left-radius: 3px; }
+
+    /* Interim live transcript */
+    .interim-box {
+      font-size: 13px; color: var(--muted); font-style: italic;
+      background: #F9FAFB; border-radius: 8px; padding: 8px 12px;
+      min-height: 34px; margin-bottom: 12px; display: none;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 12px;
+    }
+    .status-line {
+      font-size: 13px; color: var(--muted);
+      text-align: center; min-height: 18px;
+    }
+
+    /* Mic button */
+    .btn-mic {
+      width: 76px; height: 76px; border-radius: 50%;
+      border: none; background: var(--primary); color: #fff;
+      font-size: 30px; cursor: pointer; display: none;
+      box-shadow: 0 4px 18px rgba(91,76,245,.38);
+      transition: transform .15s;
+    }
+    .btn-mic:hover  { transform: scale(1.06); }
+    .btn-mic:active { transform: scale(.94); }
+    .btn-mic:disabled { background: #D1D5DB; box-shadow: none; cursor: not-allowed; transform: none; }
+
+    .btn-mic.listening {
+      background: var(--red);
+      animation: mic-pulse 1.4s infinite;
+    }
+    @keyframes mic-pulse {
+      0%   { box-shadow: 0 0 0 0   rgba(239,68,68,.45); }
+      70%  { box-shadow: 0 0 0 18px rgba(239,68,68,0); }
+      100% { box-shadow: 0 0 0 0   rgba(239,68,68,0); }
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 30px; height: 30px; display: none;
+      border: 3px solid #E5E7EB; border-top-color: var(--primary);
+      border-radius: 50%; animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Text input */
+    .text-fallback { display: flex; width: 100%; gap: 8px; }
+    .text-fallback input {
+      flex: 1; padding: 11px 14px; border: 2px solid var(--border);
+      border-radius: 12px; font-size: 14px; outline: none;
+      transition: border-color .15s;
+    }
+    .text-fallback input:focus { border-color: var(--primary); }
+    .text-fallback button {
+      padding: 11px 18px; background: var(--primary); color: #fff;
+      border: none; border-radius: 12px; cursor: pointer; font-size: 16px;
+    }
+    .warn-box {
+      font-size: 12px; color: var(--yellow);
+      background: #FFFBEB; border: 1px solid #FDE68A;
+      border-radius: 8px; padding: 7px 12px; text-align: center; display: none;
+    }
+
+    /* Language selector */
+    .lang-selector {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      margin-bottom: 4px;
+    }
+    .lang-selector label { font-size: 13px; color: var(--muted); }
+    .lang-selector select {
+      padding: 9px 16px; border: 2px solid var(--border); border-radius: 12px;
+      font-size: 14px; background: #fff; color: var(--text);
+      cursor: pointer; outline: none; min-width: 200px;
+      transition: border-color .15s;
+    }
+    .lang-selector select:focus { border-color: var(--primary); }
+
+    /* ── Results Screen ── */
+    .results-screen { display: none; }
+
+    .report-hero {
+      background: linear-gradient(135deg, #5B4CF5 0%, #7C3AED 100%);
+      border-radius: 16px; padding: 28px 24px; text-align: center;
+      color: #fff; margin-bottom: 20px; position: relative; overflow: hidden;
+    }
+    .report-hero::before {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 140px; height: 140px; border-radius: 50%;
+      background: rgba(255,255,255,.08);
+    }
+    .report-hero::after {
+      content: ''; position: absolute; bottom: -30px; left: -30px;
+      width: 100px; height: 100px; border-radius: 50%;
+      background: rgba(255,255,255,.06);
+    }
+    .report-hero .candidate-name {
+      font-size: 22px; font-weight: 800; margin-bottom: 2px;
+    }
+    .report-hero .report-sub {
+      font-size: 12px; opacity: .8; margin-bottom: 20px;
+    }
+    .score-ring-wrap {
+      display: inline-flex; flex-direction: column;
+      align-items: center; gap: 6px;
+    }
+    .score-ring {
+      width: 90px; height: 90px; border-radius: 50%;
+      background: rgba(255,255,255,.15);
+      border: 4px solid rgba(255,255,255,.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 42px; font-weight: 900; color: #fff;
+      box-shadow: 0 0 0 6px rgba(255,255,255,.1);
+    }
+    .score-ring.ring-1 { border-color: #FCA5A5; }
+    .score-ring.ring-2 { border-color: #FDBA74; }
+    .score-ring.ring-3 { border-color: #FDE68A; }
+    .score-ring.ring-4 { border-color: #6EE7B7; }
+    .score-ring.ring-5 { border-color: #34D399; }
+    .score-stars-hero { font-size: 20px; letter-spacing: 2px; }
+    .score-label-hero {
+      font-size: 13px; font-weight: 700; letter-spacing: .5px;
+      background: rgba(255,255,255,.2); border-radius: 20px;
+      padding: 4px 14px; margin-top: 2px;
+    }
+
+    /* Skills grid */
+    .section-title {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .6px;
+      margin: 20px 0 10px;
+    }
+    .skills-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      margin-bottom: 4px;
+    }
+    .skill-chip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; border-radius: 12px;
+      font-size: 13px; font-weight: 500; line-height: 1.3;
+      transition: transform .1s;
+    }
+    .skill-chip.observed {
+      background: #ECFDF5; color: #065F46; border: 1.5px solid #6EE7B7;
+    }
+    .skill-chip.not-observed {
+      background: #F9FAFB; color: #9CA3AF; border: 1.5px solid #E5E7EB;
+    }
+    .skill-chip .chip-icon { font-size: 16px; flex-shrink: 0; }
+    .skill-chip .chip-label { flex: 1; }
+    .skill-chip.observed .chip-check {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #10B981; color: #fff;
+      font-size: 10px; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* Evidence cards */
+    .evidence-card {
+      background: #F8FAFF; border: 1.5px solid #E0E7FF;
+      border-left: 4px solid var(--primary);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
+    }
+    .evidence-card .ev-behavior {
+      font-size: 12px; font-weight: 700; color: var(--primary);
+      text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px;
+    }
+    .evidence-card .ev-text {
+      font-size: 13px; color: var(--text); line-height: 1.55;
+    }
+
+    /* Grow chips */
+    .grow-chip {
+      display: flex; align-items: center; gap: 8px;
+      background: #FFFBEB; border: 1.5px solid #FDE68A;
+      border-radius: 10px; padding: 10px 12px; margin-bottom: 7px;
+      font-size: 13px; color: #92400E;
+    }
+
+    /* Summary box */
+    .summary-box {
+      background: #F5F3FF; border-radius: 12px; padding: 14px 16px;
+      font-size: 14px; color: var(--text); line-height: 1.65;
+      border-left: 4px solid var(--primary);
+    }
+
+    /* Encouragement */
+    .encouragement-box {
+      background: linear-gradient(135deg, #FFF7ED, #FFEDD5);
+      border-radius: 14px; padding: 16px 18px; margin-top: 6px;
+      display: flex; gap: 12px; align-items: flex-start;
+    }
+    .encouragement-box .enc-icon { font-size: 28px; flex-shrink: 0; }
+    .encouragement-box .enc-text {
+      font-size: 14px; color: #7C2D12; line-height: 1.6; font-weight: 500;
+    }
+
+    .btn-restart {
+      margin-top: 22px; width: 100%;
+      padding: 14px; background: var(--primary); color: #fff;
+      border: none; border-radius: 12px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-restart:hover { background: #4A3BE3; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <h1>🎙️ AI Teamwork Interviewer</h1>
+    <p>2–3 minute voice assessment</p>
+  </div>
+
+  <div class="card">
+
+    <!-- ══════════ IDLE ══════════ -->
+    <div class="idle-screen" id="idle">
+      <div class="hero-icon">👋</div>
+      <h2>Ready for your interview?</h2>
+      <p class="desc">
+        Priya, your AI interviewer, will ask you a few friendly questions
+        about your teamwork experiences. It takes only 2–3 minutes!
+      </p>
+      <div class="lang-selector">
+        <label for="langSelect">Choose your language / अपनी भाषा चुनें</label>
+        <select id="langSelect">
+          <option value="en-IN">English</option>
+          <option value="hi-IN">हिंदी (Hindi)</option>
+          <option value="ta-IN">தமிழ் (Tamil)</option>
+          <option value="te-IN">తెలుగు (Telugu)</option>
+          <option value="kn-IN">ಕನ್ನಡ (Kannada)</option>
+          <option value="ml-IN">മലയാളം (Malayalam)</option>
+          <option value="bn-IN">বাংলা (Bengali)</option>
+          <option value="mr-IN">मराठी (Marathi)</option>
+          <option value="gu-IN">ગુજરાતી (Gujarati)</option>
+          <option value="pa-IN">ਪੰਜਾਬੀ (Punjabi)</option>
+        </select>
+      </div>
+      <div class="tip">💡 Works best on <strong>Chrome</strong> with microphone access</div><br>
+      <button class="btn-start" onclick="startInterview()">Start Interview →</button>
+    </div>
+
+    <!-- ══════════ INTERVIEW ══════════ -->
+    <div class="interview-screen" id="interview">
+
+      <div class="interviewer-bar">
+        <div class="avatar">👩‍💼</div>
+        <div class="interviewer-info">
+          <h2>Priya</h2>
+          <p>AI Teamwork Interviewer</p>
+        </div>
+        <div class="timer" id="timer">0:00</div>
+      </div>
+
+      <div class="transcript" id="transcript"></div>
+
+      <div class="interim-box" id="interim"></div>
+
+      <div class="controls">
+        <p class="status-line" id="status">Starting interview…</p>
+        <button class="btn-mic" id="btnMic" onclick="toggleMic()">🎤</button>
+        <div class="spinner" id="spinner"></div>
+
+        <div class="warn-box" id="warnBox">
+          🎤 Microphone not available — please type your answers below.
+        </div>
+        <div class="text-fallback" id="textFallback">
+          <input type="text" id="textInput" placeholder="Speak or type your answer here — edit before sending…"
+                 onkeydown="if(event.key==='Enter') sendText()">
+          <button onclick="sendText()">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ RESULTS ══════════ -->
+    <div class="results-screen" id="results">
+
+      <!-- Hero score banner -->
+      <div class="report-hero">
+        <div class="candidate-name" id="resHeading">Teamwork Report</div>
+        <div class="report-sub">AI Teamwork Assessment · Priya</div>
+        <div class="score-ring-wrap">
+          <div class="score-ring" id="scoreRing">3</div>
+          <div class="score-stars-hero" id="scoreStars">★★★☆☆</div>
+          <div class="score-label-hero" id="scoreLabel">Active Collaborator</div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="section-title">📋 Overall Observation</div>
+      <div class="summary-box" id="resSummary"></div>
+
+      <!-- Skills observed grid -->
+      <div class="section-title">🧩 Teamwork Skills</div>
+      <div class="skills-grid" id="skillsGrid"></div>
+
+      <!-- Evidence -->
+      <div id="secEvidence" style="display:none">
+        <div class="section-title">🔍 What You Demonstrated</div>
+        <div id="evidenceCards"></div>
+      </div>
+
+      <!-- Areas to grow -->
+      <div id="secGrow" style="display:none">
+        <div class="section-title">📈 Areas to Develop</div>
+        <div id="listGrow"></div>
+      </div>
+
+      <!-- Encouragement -->
+      <div class="section-title">💬 From Priya</div>
+      <div class="encouragement-box">
+        <div class="enc-icon">🌟</div>
+        <div class="enc-text" id="resEncourage"></div>
+      </div>
+
+      <button class="btn-restart" onclick="restart()">Start a New Interview</button>
+    </div>
+
+  </div><!-- /card -->
+</div><!-- /container -->
+
+<script>
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let history      = [];       // [{role, content}, ...]
+let state        = 'IDLE';   // IDLE | AI_SPEAKING | USER_TURN | LISTENING | PROCESSING | DONE
+let selectedLang = 'en-IN';
+let startTime    = null;
+let timerHandle  = null;
+let recognition  = null;
+let hasVoice     = false;
+let finalBuf     = '';
+const synth      = window.speechSynthesis;
+
+// ═══════════════════════════════════════════
+//  VOICE — TTS
+// ═══════════════════════════════════════════
+function getVoice() {
+  const voices = synth.getVoices();
+  const langPrefix = selectedLang.split('-')[0];
+  return (
+    voices.find(v => v.lang === selectedLang) ||
+    voices.find(v => v.lang.startsWith(langPrefix)) ||
+    voices.find(v => v.lang === 'en-IN') ||
+    voices.find(v => v.lang.startsWith('en') && /female|woman/i.test(v.name)) ||
+    voices.find(v => v.lang === 'en-US') ||
+    voices.find(v => v.lang.startsWith('en')) ||
+    null
+  );
+}
+
+function speak(text, onDone) {
+  if (!synth) { onDone && onDone(); return; }
+  synth.cancel();
+  const utt  = new SpeechSynthesisUtterance(text);
+  utt.rate   = 0.93;
+  utt.pitch  = 1.0;
+  utt.volume = 1.0;
+  const v = getVoice();
+  if (v) utt.voice = v;
+  utt.onend  = () => onDone && onDone();
+  utt.onerror = () => onDone && onDone();
+  synth.speak(utt);
+}
+
+// ═══════════════════════════════════════════
+//  VOICE — STT
+// ═══════════════════════════════════════════
+function setupRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { hasVoice = false; return; }
+  hasVoice    = true;
+  recognition = new SR();
+  recognition.continuous      = true;
+  recognition.interimResults  = true;
+  recognition.maxAlternatives = 1;
+  recognition.lang            = selectedLang;
+
+  recognition.onresult = e => {
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      (e.results[i].isFinal ? (final += e.results[i][0].transcript)
+                            : (interim += e.results[i][0].transcript));
+    }
+    if (final) finalBuf += final;
+    const box = id('interim');
+    box.textContent = (finalBuf + interim) || '…listening…';
+    box.style.display = 'block';
+  };
+
+  recognition.onend = () => {
+    micOff();
+    if (finalBuf.trim()) {
+      const txt = finalBuf.trim(); finalBuf = '';
+      id('interim').style.display = 'none';
+      const inp = id('textInput');
+      inp.value = txt;
+      inp.focus();
+      inp.setSelectionRange(txt.length, txt.length);
+      setState('USER_TURN');
+      setStatus('Edit your answer if needed, then press Enter or ➤');
+    } else if (state === 'LISTENING') {
+      setState('USER_TURN');
+      setStatus('Tap the mic and speak 🎤');
+    }
+  };
+
+  recognition.onerror = e => {
+    micOff();
+    if (e.error === 'not-allowed' || e.error === 'audio-capture') {
+      activateTextFallback();
+    } else if (state === 'LISTENING') {
+      setState('USER_TURN');
+      setStatus("Didn't catch that — tap mic and try again 🎤");
+    }
+  };
+}
+
+// ═══════════════════════════════════════════
+//  TIMER
+// ═══════════════════════════════════════════
+function startTimer() {
+  startTime  = Date.now();
+  timerHandle = setInterval(() => {
+    const sec  = Math.floor((Date.now() - startTime) / 1000);
+    const m    = Math.floor(sec / 60);
+    const s    = sec % 60;
+    const el   = id('timer');
+    el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    el.classList.toggle('warn', sec >= 150);
+  }, 1000);
+}
+
+function elapsed() {
+  return startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+}
+
+// ═══════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════
+const id = s => document.getElementById(s);
+
+function setStatus(t) { id('status').textContent = t; }
+
+function micOn()  { const b = id('btnMic'); b.classList.add('listening');    b.innerHTML = '⏹️'; }
+function micOff() { const b = id('btnMic'); b.classList.remove('listening'); b.innerHTML = '🎤'; }
+
+function setState(s) {
+  state = s;
+  const mic     = id('btnMic');
+  const spinner = id('spinner');
+  const textIn  = id('textInput');
+
+  switch (s) {
+    case 'AI_SPEAKING':
+      mic.style.display      = 'none';
+      spinner.style.display  = 'none';
+      if (textIn) textIn.disabled = true;
+      setStatus('🔊 Priya is speaking…');
+      break;
+
+    case 'USER_TURN':
+      spinner.style.display = 'none';
+      if (textIn) textIn.disabled = false;
+      if (hasVoice) {
+        mic.style.display = 'flex';
+        micOff();
+        setStatus('Your turn — tap the mic and speak 🎤');
+      } else {
+        mic.style.display = 'none';
+        setStatus('Your turn — type your answer below ⌨️');
+      }
+      break;
+
+    case 'LISTENING':
+      mic.style.display     = 'flex';
+      spinner.style.display = 'none';
+      micOn();
+      setStatus('🔴 Listening… speak now');
+      break;
+
+    case 'PROCESSING':
+      mic.style.display     = 'none';
+      spinner.style.display = 'block';
+      if (textIn) textIn.disabled = true;
+      setStatus('Processing…');
+      break;
+  }
+}
+
+function addMsg(role, text) {
+  const tr  = id('transcript');
+  const div = document.createElement('div');
+  div.className = `msg ${role === 'assistant' ? 'priya' : 'user'}`;
+  div.innerHTML =
+    `<div class="msg-who">${role === 'assistant' ? '👩‍💼 Priya' : '👤 You'}</div>` +
+    `<div class="msg-bubble">${text}</div>`;
+  tr.appendChild(div);
+  tr.scrollTop = tr.scrollHeight;
+}
+
+function activateTextFallback() {
+  hasVoice = false;
+  id('warnBox').style.display   = 'block';
+  id('textFallback').style.display = 'flex';
+  id('btnMic').style.display    = 'none';
+  setState('USER_TURN');
+}
+
+// ═══════════════════════════════════════════
+//  INTERVIEW FLOW
+// ═══════════════════════════════════════════
+async function startInterview() {
+  selectedLang = id('langSelect').value;
+  id('idle').style.display      = 'none';
+  id('interview').style.display = 'block';
+
+  setupRecognition();
+  if (!hasVoice) activateTextFallback();
+
+  // Pre-load TTS voices (async in some browsers)
+  if (synth && synth.getVoices().length === 0) {
+    await new Promise(r => { synth.onvoiceschanged = r; setTimeout(r, 800); });
+  }
+
+  startTimer();
+  await fetchAI([]);
+}
+
+async function fetchAI(msgs) {
+  setState('PROCESSING');
+  try {
+    const res  = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: msgs.filter(m => m.content && m.content !== 'undefined'), elapsed: elapsed(), language: selectedLang })
+    });
+    const data = await res.json();
+    const msg = data.message || data.text || JSON.stringify(data);
+    if (!msg || msg === 'undefined') {
+      setStatus('⚠️ Empty response — please try again.');
+      setState('USER_TURN');
+      return;
+    }
+
+    addMsg('assistant', msg);
+    history.push({ role: 'assistant', content: msg });
+
+    if (data.interview_complete) {
+      clearInterval(timerHandle);
+      setState('AI_SPEAKING');
+      speak(msg, () => getAssessment());
+    } else {
+      setState('AI_SPEAKING');
+      speak(msg, () => setState('USER_TURN'));
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus('⚠️ Network error — please refresh and try again.');
+    id('spinner').style.display = 'none';
+  }
+}
+
+function toggleMic() {
+  if (state === 'LISTENING') {
+    recognition.stop();
+  } else if (state === 'USER_TURN') {
+    finalBuf = '';
+    synth && synth.cancel();
+    try {
+      recognition.start();
+      setState('LISTENING');
+      setStatus('Listening… tap ⏹️ when done speaking');
+    } catch {
+      activateTextFallback();
+    }
+  }
+}
+
+function sendText() {
+  const inp = id('textInput');
+  const txt = inp.value.trim();
+  if (!txt || state === 'PROCESSING' || state === 'AI_SPEAKING') return;
+  inp.value = '';
+  inp.blur();
+  sendMessage(txt);
+}
+
+function sendMessage(text) {
+  addMsg('user', text);
+  history.push({ role: 'user', content: text });
+  id('interim').style.display = 'none';
+  fetchAI(history);
+}
+
+// ═══════════════════════════════════════════
+//  ASSESSMENT
+// ═══════════════════════════════════════════
+async function getAssessment() {
+  setState('PROCESSING');
+  try {
+    const res  = await fetch('/assess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: history })
+    });
+    showResults(await res.json());
+  } catch {
+    showResults({
+      score: 3, label: 'Active Collaborator',
+      summary: 'Interview completed. Thank you for your time!',
+      strengths: ['Participated fully in the interview'],
+      areas_to_grow: ['Practice giving specific STAR-format examples'],
+      encouragement: 'Keep it up! Teamwork skills grow with every project you work on.'
+    });
+  }
+}
+
+const ALL_SKILLS = [
+  { key: 'Proactive info sharing',        icon: '📢' },
+  { key: 'Saying stuck quickly',          icon: '🙋' },
+  { key: 'Quality handoffs',              icon: '🤝' },
+  { key: 'Active listening',              icon: '👂' },
+  { key: 'Productive disagreement',       icon: '💬' },
+  { key: 'Giving credit precisely',       icon: '🏅' },
+  { key: 'Receiving feedback',            icon: '🪞' },
+  { key: 'Unblocking others',             icon: '🔓' },
+  { key: 'Reliable delivery',             icon: '✅' },
+  { key: 'Documenting decisions',         icon: '📝' },
+  { key: 'Working across functions',      icon: '🌐' },
+  { key: 'Covering without being asked',  icon: '🦸' },
+];
+
+function showResults(data) {
+  id('interview').style.display = 'none';
+  id('results').style.display   = 'block';
+
+  // Hero banner
+  const name = data.name && data.name !== 'Candidate' ? data.name : null;
+  id('resHeading').textContent = name ? `${name}'s Teamwork Report` : 'Teamwork Report';
+
+  const score = Math.min(5, Math.max(1, data.score || 3));
+  const ring = id('scoreRing');
+  ring.textContent = score;
+  ring.className = `score-ring ring-${score}`;
+  id('scoreStars').textContent = '★'.repeat(score) + '☆'.repeat(5 - score);
+  id('scoreLabel').textContent = data.label || 'Active Collaborator';
+
+  // Summary
+  id('resSummary').textContent = data.summary || '';
+
+  // Skills grid — highlight observed ones
+  const observedKeys = new Set(
+    (data.behaviors_observed || []).map(b => b.behavior.toLowerCase())
+  );
+  const strengthKeys = new Set(
+    (data.strengths || []).map(s => s.toLowerCase())
+  );
+  function isObserved(skill) {
+    const k = skill.key.toLowerCase();
+    for (const ok of observedKeys) if (ok.includes(k.split(' ')[0])) return true;
+    for (const sk of strengthKeys) if (sk.includes(k.split(' ')[0])) return true;
+    return false;
+  }
+  const grid = id('skillsGrid');
+  grid.innerHTML = ALL_SKILLS.map(skill => {
+    const on = isObserved(skill);
+    return `<div class="skill-chip ${on ? 'observed' : 'not-observed'}">
+      <span class="chip-icon">${skill.icon}</span>
+      <span class="chip-label">${skill.key}</span>
+      ${on ? '<span class="chip-check">✓</span>' : ''}
+    </div>`;
+  }).join('');
+
+  // Evidence cards
+  if (data.behaviors_observed && data.behaviors_observed.length) {
+    id('evidenceCards').innerHTML = data.behaviors_observed.map(b =>
+      `<div class="evidence-card">
+        <div class="ev-behavior">${b.behavior}</div>
+        <div class="ev-text">${b.evidence}</div>
+      </div>`
+    ).join('');
+    id('secEvidence').style.display = 'block';
+  }
+
+  // Areas to grow
+  if (data.areas_to_grow && data.areas_to_grow.length) {
+    id('listGrow').innerHTML = data.areas_to_grow.map(a =>
+      `<div class="grow-chip">📈 <span>${a}</span></div>`
+    ).join('');
+    id('secGrow').style.display = 'block';
+  }
+
+  // Encouragement
+  id('resEncourage').textContent = data.encouragement || 'Great effort — keep growing!';
+}
+
+// ═══════════════════════════════════════════
+//  RESTART
+// ═══════════════════════════════════════════
+function restart() {
+  history   = [];
+  startTime = null;
+  state     = 'IDLE';
+  finalBuf  = '';
+  synth && synth.cancel();
+  clearInterval(timerHandle);
+
+  id('transcript').innerHTML    = '';
+  id('timer').textContent       = '0:00';
+  id('timer').classList.remove('warn');
+  id('interim').style.display   = 'none';
+  id('warnBox').style.display   = 'none';
+  id('secEvidence').style.display  = 'none';
+  id('secGrow').style.display      = 'none';
+  id('evidenceCards').innerHTML    = '';
+  id('listGrow').innerHTML         = '';
+  id('skillsGrid').innerHTML       = '';
+
+  id('results').style.display   = 'none';
+  id('interview').style.display = 'none';
+  id('idle').style.display      = 'block';
+}
+
+// Pre-warm voice list
+synth && synth.getVoices();
+</script>
+</body>
+</html>
